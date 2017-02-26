@@ -59,4 +59,11 @@ class MigrateDatabaseTest extends TestCase
         $this->assertEquals('bazz', $user->getConfig('foo.bars'));
 
     }
+
+    public function testRoute()
+    {
+        $this->withoutMiddleware();
+        $crawler = $this->json('GET', 'api/v1/larastart/echo?a=1');
+        $this->assertEquals(json_encode(['a' => '1']), $crawler->getContent());
+    }
 }
