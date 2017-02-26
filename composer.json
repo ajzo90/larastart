@@ -11,6 +11,9 @@
   "require": {
   },
   "autoload": {
+    "classmap": [
+      "database"
+    ],
     "files": [
       "./helpers/array.php",
       "./helpers/database.php",
@@ -20,7 +23,16 @@
       "./helpers/system.php"
     ],
     "psr-4": {
-      "Ajzo90\\Larastart\\": "src"
+      "Larastart\\": "src"
     }
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "Larastart\\Tests\\": "tests/"
+    }
+  },
+  "require-dev": {
+    "orchestra/testbench": "~3.0",
+    "phpunit/phpunit": "~5.7"
   }
 }
