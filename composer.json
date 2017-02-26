@@ -1,0 +1,26 @@
+{
+  "name": "ajzo90/larastart",
+  "type": "library",
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "Christian Persson",
+      "email": "christian@infobaleen.com"
+    }
+  ],
+  "require": {
+  },
+  "autoload": {
+    "files": [
+      "./helpers/array.php",
+      "./helpers/database.php",
+      "./helpers/laravel.php",
+      "./helpers/php.php",
+      "./helpers/string.php",
+      "./helpers/system.php"
+    ],
+    "psr-4": {
+      "Ajzo90\\Larastart\\": "src"
+    }
+  }
+}
