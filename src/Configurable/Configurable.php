@@ -30,7 +30,8 @@ trait Configurable
 
         $config = $this->getConfig();
         if ($config) {
-            Configuration::where('key', $this->configKey())->update(['config' => json_encode(array_merge_recursive($config, $key))]);
+            $newConfig = json_encode(array_merge_recursive($config, $key));
+            Configuration::where('key', $this->configKey())->update(['config' => $newConfig]);
         } else {
             Configuration::create(['key' => $this->configKey(), 'config' => $key]);
         }
