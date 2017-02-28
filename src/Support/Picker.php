@@ -41,15 +41,13 @@ class Picker
     // set order to NULL for updated users
     public function register($key, array $users = null, $min = null, $max = null)
     {
-        $pid = $this->getPickerId($key);
+        $picker = $this->getPicker($key);
 
         if ($this->isLocked($key)) {
             throw new \Exception("This key is locked");
         }
 
         $usersHash = md5(json_encode($users));
-
-        $picker = $this->getPicker($key);
 
         $needUpdate = false;
 
@@ -59,15 +57,14 @@ class Picker
             $needUpdate = true;
 
             foreach ($users as $userId => $rank) {
-                $dataToUpdate[$userId] = ["rank" => $rank, "user_id" => $userId, "picker_id" => $pid, "picked" => 0, "order" => null];
+                $dataToUpdate[$userId] = ["rank" => $rank, "user_id" => $userId, "picker_id" => $picker->id, "picked" => 0, "order" => null];
             }
 
             foreach (collect($dataToUpdate)->chunk(5000) as $chunk) {
                 $keys = $chunk->keys();
-                $this->pickerDataQuery([$pid])->where("picker_id", $pid)->delete(); // delete for this key
-                $this->pickerDataQuery()->whereIn("user_id", $keys)->update(["order" => null]); // reset order for new users
-                $this->pickerDataQuery()->insert($chunk->values()->toArray());
-
+                $this->pickerDataQuery([$picker->id])->delete(); // delete for this key
+                $this->pickerDataQuery($this->allPids())->whereIn("user_id", $keys)->update(["order" => null]); // reset order for new users
+                $this->pickerDataQuery($this->allPids())->insert($chunk->values()->toArray());
             }
         }
 
@@ -109,7 +106,7 @@ class Picker
     public function resetPicker()
     {
         $this->updatePickers(['picked' => 0, 'picked_at' => null, 'locked_at' => null]);
-        $this->query()->update(["picked" => 0]);
+        $this->pickerDataQuery()->update(["picked" => 0]);
     }
 
 
@@ -135,7 +132,7 @@ class Picker
         foreach ($pickers as $picker) {
             // notice the order. It is like this: [{order: 2, rank: 1}, {order:2, rank:2}, {order:1, rank: 2}, {order: 1, rank: 1}] The lowest order and the highest rank in the end.
             // This is because the array is traversed with pop operations.
-            $pickersToUsers[$picker->key] = $this->query($picker->key)->orderBy("order", "desc")->orderBy("rank", "asc")->pluck("user_id")->toArray();
+            $pickersToUsers[$picker->key] = $this->pickerDataQuery([$picker->id])->orderBy("order", "desc")->orderBy("rank", "asc")->pluck("user_id")->toArray();
             $pickersVelocity[$picker->key] = $picker->min / max($max, 1);
             $pickersToBooked[$picker->id] = 0;
         }
@@ -173,7 +170,7 @@ class Picker
         // insert booked users from first part
         foreach ($bookedUsers as $user_id => $picker_id) {
 //            echo "Picked $user_id  $picker_id\n";
-            $this->query()->where("picker_id", $picker_id)->where("user_id", $user_id)->update(["picked" => 1]);
+            $this->pickerDataQuery([$picker_id])->where("user_id", $user_id)->update(["picked" => 1]);
         }
 
         $pickersFreeSlots = [];
@@ -194,18 +191,19 @@ class Picker
 
     }
 
-
     public function lockedUsers()
     {
-        return ib_db("picker_data")->whereIn("picker_id", $this->lockedPids(1))->where("locked", 1)->select("user_id")->distinct()->pluck("user_id")->toArray();
+        return $this->pickerDataQuery($this->lockedPids())->where("locked", 1)->select("user_id")->distinct()->pluck("user_id")->toArray();
     }
 
     public function availableUsers()
     {
-        $pids = ib_db("pickers")->where(['namespace' => $this->namespace])->pluck("id");
-        $q = ib_db("picker_data")->whereIn("picker_id", $pids)
-            ->select('user_id')->groupBy('user_id')->havingRaw('SUM(locked) = 0 and SUM(picked) = 0');
-        return $q->pluck('user_id')->toArray();
+        return $this->pickerDataQuery($this->allPids())
+            ->select('user_id')
+            ->groupBy('user_id')
+            ->havingRaw('SUM(locked) = 0 and SUM(picked) = 0')
+            ->pluck('user_id')
+            ->toArray();
     }
 
     public function lock($key)
@@ -215,10 +213,11 @@ class Picker
             $this->validate();
         }
 
-        $userIds = $this->query($key)->where("picked", 1)->pluck("user_id")->toArray();
+        $pids = [$this->getPicker($key)->id];
+        $userIds = $this->pickerDataQuery($pids)->where("picked", 1)->pluck("user_id")->toArray();
 
         $this->updatePicker($key, ['locked' => 1, 'locked_at' => Carbon::now()]);
-        $this->query($key)->whereIn('user_id', $userIds)->update(['locked' => 1]);
+        $this->pickerDataQuery($pids)->whereIn('user_id', $userIds)->update(['locked' => 1]);
 
         return $userIds;
     }
@@ -227,28 +226,13 @@ class Picker
     {
         $this->updatePicker($key, ['locked' => 0]);
         $this->updatePickers(['picked' => 0]);
-        $this->query($key)->update(['locked' => 0, 'picked' => 0]);
-    }
-
-
-    public function getPicker($key)
-    {
-        return ib_db("pickers")->where(['namespace' => $this->namespace, 'key' => $key])->first();
-    }
-
-    private function query($key = null)
-    {
-        if ($key) {
-            return ib_db("picker_data")->where("picker_id", $this->getPickerId($key));
-        } else {
-            return ib_db("picker_data")->whereIn("picker_id", $this->unlockedPids());
-        }
+        $this->pickerDataQuery([$this->getPicker($key)->id])->update(['locked' => 0, 'picked' => 0]);
     }
 
 
     private function updateOrder()
     {
-        $users = $this->query()->whereNull("order")->orderBy("rank", "desc")->select(["user_id", "picker_id", "rank"])->get()->groupBy("user_id");
+        $users = $this->pickerDataQuery()->whereNull("order")->orderBy("rank", "desc")->select(["user_id", "picker_id", "rank"])->get()->groupBy("user_id");
         $toInsert = [];
         foreach ($users as $userId => $userData) {
             $i = 1;
@@ -258,15 +242,14 @@ class Picker
         }
 
         \DB::transaction(function () use ($toInsert) {
-            $this->query()->whereNull("order")->delete();
-            $this->query()->insert($toInsert);
+            $this->pickerDataQuery()->whereNull("order")->delete();
+            $this->pickerDataQuery()->insert($toInsert);
         });
     }
 
     private function validate()
     {
-        $pids = ib_db("pickers")->where(['namespace' => $this->namespace])->pluck("id");
-        if (ib_db("picker_data")->whereIn("picker_id", $pids)->select('user_id')->groupBy('user_id')->havingRaw('SUM(picked) > 1')->count() > 0) {
+        if ($this->pickerDataQuery($this->allPids())->select('user_id')->groupBy('user_id')->havingRaw('SUM(picked) > 1')->count() > 0) {
             throw new \Exception("Validation error in picker");
         }
     }
@@ -274,30 +257,18 @@ class Picker
 
     private function getPickers($locked = 0)
     {
-        return ib_db("pickers")->where(['namespace' => $this->namespace, 'locked' => $locked])->get();
+        return $this->pickerQuery()->where(compact('locked'))->get();
     }
-
 
     private function updatePicker($key, $data)
     {
-        ib_db("pickers")->where(['namespace' => $this->namespace, 'key' => $key])->update($data);
+        $this->pickerQuery()->where(compact('key'))->update($data);
     }
 
     private function updatePickers($data, $locked = 0)
     {
-        ib_db("pickers")->where(['namespace' => $this->namespace, 'locked' => $locked])->update($data);
+        $this->pickerQuery()->where(compact('locked'))->update($data);
     }
-
-    private function getPickerId($key)
-    {
-        $picker = $this->getPicker($key);
-        if ($picker) {
-            return $picker->id;
-        } else {
-            return ib_db("pickers")->insertGetId(['namespace' => $this->namespace, 'key' => $key]);
-        }
-    }
-
 
     private function letTheUsersPick($pickersFreeSlots)
     {
@@ -318,16 +289,13 @@ class Picker
 
 
         foreach ($bookedUsers as $user_id => $picker_id) {
-            $this->query()->where("picker_id", $picker_id)->where("user_id", $user_id)->update(["picked" => 1]);
+            $this->pickerDataQuery([$picker_id])->where("user_id", $user_id)->update(["picked" => 1]);
         }
     }
 
     private function isLocked($key)
     {
-        $this->getPickerId($key);
-        $picker = $this->getPicker($key);
-
-        return $picker->locked;
+        return $this->getPicker($key)->locked;
     }
 
     private function lockedPids()
@@ -337,25 +305,42 @@ class Picker
 
     private function unlockedPids($locked = 0)
     {
-        return ib_db("pickers")->where(['namespace' => $this->namespace, 'locked' => $locked])->pluck("id")->toArray();
+        return $this->pickerQuery()->where(compact('locked'))->pluck("id")->toArray();
     }
 
     private function allPids()
     {
-        return ib_db("pickers")->where(['namespace' => $this->namespace])->pluck("id")->toArray();
-    }
-
-    private function pickerDataQuery(array $pids = [])
-    {
-        if (count($pids) === 0) {
-            $pids = $this->allPids();
-        }
-        return ib_db("picker_data")->whereIn("picker_id", $pids);
+        return $this->pickerQuery()->pluck("id")->toArray();
     }
 
 
     private function userPickQuery()
     {
-        return $this->query()->whereIn('user_id', $this->availableUsers())->orderBy("order", "asc")->select("picker_id", "user_id")->get();
+        return $this->pickerDataQuery()->whereIn('user_id', $this->availableUsers())->orderBy("order", "asc")->select("picker_id", "user_id")->get();
     }
+
+    public function getPicker($key)
+    {
+        $picker = $this->pickerQuery()->where(compact('key'))->first();
+        if ($picker) {
+            return $picker;
+        } else {
+            ib_db("pickers")->insertGetId(['namespace' => $this->namespace, 'key' => $key]);
+            return $this->getPicker($key);
+        }
+    }
+
+    private function pickerQuery()
+    {
+        return ib_db("pickers")->where('namespace', $this->namespace);
+    }
+
+    private function pickerDataQuery(array $pids = [])
+    {
+        if (count($pids) === 0) {
+            $pids = $this->unlockedPids();
+        }
+        return ib_db("picker_data")->whereIn("picker_id", $pids);
+    }
+
 }
