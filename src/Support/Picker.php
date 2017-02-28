@@ -53,6 +53,8 @@ class Picker
 
         $needUpdate = false;
 
+        $dataToUpdate = [];
+
         if ($picker->hash !== $usersHash && $users !== null) {
             $needUpdate = true;
 
@@ -126,15 +128,15 @@ class Picker
         $pickers = $this->getPickers();
         $max = $pickers->max('min');
         $pickersToUsers = [];
-        $pickersToPart = [];
+        $pickersVelocity = [];
         $pickersToBooked = [];
         $bookedUsers = [];
 
         foreach ($pickers as $picker) {
             // notice the order. It is like this: [{order: 2, rank: 1}, {order:2, rank:2}, {order:1, rank: 2}, {order: 1, rank: 1}] The lowest order and the highest rank in the end.
-            // This is becuase the array is traversed with pop operations.
+            // This is because the array is traversed with pop operations.
             $pickersToUsers[$picker->key] = $this->query($picker->key)->orderBy("order", "desc")->orderBy("rank", "asc")->pluck("user_id")->toArray();
-            $pickersToPart[$picker->key] = $picker->min / max($max, 1);
+            $pickersVelocity[$picker->key] = $picker->min / max($max, 1);
             $pickersToBooked[$picker->id] = 0;
         }
 
@@ -147,7 +149,7 @@ class Picker
             $i++;
             $run = false;
             foreach ($pickers as $picker) {
-                $toPick = floor($i * $pickersToPart[$picker->key]);
+                $toPick = floor($i * $pickersVelocity[$picker->key]);
                 $toPickThisLoop = min($toPick, $picker->min) - $pickersToBooked[$picker->id];
                 $maxIterations = count($pickersToUsers[$picker->key]);
                 $picked = 0;
@@ -155,7 +157,7 @@ class Picker
 
                 while ($picked < $toPickThisLoop && $iter < $maxIterations) {
                     $run = true; // continue the outer loop as long the inner loop is visited
-                    $iter++; // iterate while the $pickersToPart array is not empty
+                    $iter++; // iterate while the $pickersToUsers array is not empty
                     $user = array_pop($pickersToUsers[$picker->key]);
                     $isBooked = $bookedUsers[$user] ?? false;
                     $isLocked = $lockedUsers[$user] ?? false;
@@ -195,7 +197,7 @@ class Picker
 
     public function lockedUsers()
     {
-        return ib_db("picker_data")->whereIn("picker_id", $this->getLockedPickerIds(1))->where("locked", 1)->select("user_id")->distinct()->pluck("user_id")->toArray();
+        return ib_db("picker_data")->whereIn("picker_id", $this->lockedPids(1))->where("locked", 1)->select("user_id")->distinct()->pluck("user_id")->toArray();
     }
 
     public function availableUsers()
@@ -239,7 +241,7 @@ class Picker
         if ($key) {
             return ib_db("picker_data")->where("picker_id", $this->getPickerId($key));
         } else {
-            return ib_db("picker_data")->whereIn("picker_id", $this->getUnlockedPickerIds());
+            return ib_db("picker_data")->whereIn("picker_id", $this->unlockedPids());
         }
     }
 
@@ -296,23 +298,6 @@ class Picker
         }
     }
 
-    private function getLockedPickerIds()
-    {
-        return $this->getUnlockedPickerIds(1);
-    }
-
-    private function getUnlockedPickerIds($locked = 0)
-    {
-        return ib_db("pickers")->where(['namespace' => $this->namespace, 'locked' => $locked])->pluck("id")->toArray();
-    }
-
-
-    private function userPickQuery()
-    {
-        $users = $this->availableUsers();
-
-        return $this->query()->whereIn('user_id', $users)->orderBy("order", "asc")->select("picker_id", "user_id")->get();
-    }
 
     private function letTheUsersPick($pickersFreeSlots)
     {
@@ -345,6 +330,15 @@ class Picker
         return $picker->locked;
     }
 
+    private function lockedPids()
+    {
+        return $this->unlockedPids(1);
+    }
+
+    private function unlockedPids($locked = 0)
+    {
+        return ib_db("pickers")->where(['namespace' => $this->namespace, 'locked' => $locked])->pluck("id")->toArray();
+    }
 
     private function allPids()
     {
@@ -357,5 +351,11 @@ class Picker
             $pids = $this->allPids();
         }
         return ib_db("picker_data")->whereIn("picker_id", $pids);
+    }
+
+
+    private function userPickQuery()
+    {
+        return $this->query()->whereIn('user_id', $this->availableUsers())->orderBy("order", "asc")->select("picker_id", "user_id")->get();
     }
 }
