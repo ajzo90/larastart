@@ -31,6 +31,11 @@ if (!defined('ib_db_helpers')) {
         return DB::connection();
     }
 
+    function ib_db_raw($str)
+    {
+        return DB::raw($str);
+    }
+
 }
 
 
