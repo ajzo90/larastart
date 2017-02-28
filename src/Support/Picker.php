@@ -1,15 +1,10 @@
 <?php
-/**
- * Created by PhpStorm.
- * User: christianpersson
- * Date: 27/02/17
- * Time: 10:04
- */
 
 namespace Larastart\Support;
 
-
 use Carbon\Carbon;
+use Illuminate\Database\Query\Builder;
+use Illuminate\Support\Collection;
 
 class Picker
 {
@@ -20,7 +15,7 @@ class Picker
         $this->namespace = $namespace;
     }
 
-    public function needToRunPicker($key = null)
+    public function needToRunPicker($key = null) : bool
     {
         if ($key) {
             $picker = $this->getPicker($key);
@@ -81,7 +76,7 @@ class Picker
     }
 
 
-    public function status()
+    public function status() : array
     {
         $pickers = ib_db("pickers")->where(['namespace' => $this->namespace])->get()->transform(function ($picker) {
             $picker->users = (array)$this->pickerDataQuery([$picker->id])
@@ -112,7 +107,7 @@ class Picker
 
     // run picker
     // only run it for users whereHas picker false
-    public function runPicker($next = true)
+    public function runPicker($next = true) : bool
     {
         if (!$this->needToRunPicker()) {
             return false;
@@ -191,12 +186,12 @@ class Picker
 
     }
 
-    public function lockedUsers()
+    public function lockedUsers() : array
     {
         return $this->pickerDataQuery($this->lockedPids())->where("locked", 1)->select("user_id")->distinct()->pluck("user_id")->toArray();
     }
 
-    public function availableUsers()
+    public function availableUsers() : array
     {
         return $this->pickerDataQuery($this->allPids())
             ->select('user_id')
@@ -206,7 +201,7 @@ class Picker
             ->toArray();
     }
 
-    public function lock($key)
+    public function lock($key) : array
     {
         if ($this->needToRunPicker($key)) {
             $this->runPicker();
@@ -255,7 +250,7 @@ class Picker
     }
 
 
-    private function getPickers($locked = 0)
+    private function getPickers($locked = 0) : Collection
     {
         return $this->pickerQuery()->where(compact('locked'))->get();
     }
@@ -293,33 +288,33 @@ class Picker
         }
     }
 
-    private function isLocked($key)
+    private function isLocked($key) : bool
     {
         return $this->getPicker($key)->locked;
     }
 
-    private function lockedPids()
+    private function lockedPids() : array
     {
         return $this->unlockedPids(1);
     }
 
-    private function unlockedPids($locked = 0)
+    private function unlockedPids($locked = 0) : array
     {
         return $this->pickerQuery()->where(compact('locked'))->pluck("id")->toArray();
     }
 
-    private function allPids()
+    private function allPids() : array
     {
         return $this->pickerQuery()->pluck("id")->toArray();
     }
 
 
-    private function userPickQuery()
+    private function userPickQuery() : Collection
     {
         return $this->pickerDataQuery()->whereIn('user_id', $this->availableUsers())->orderBy("order", "asc")->select("picker_id", "user_id")->get();
     }
 
-    public function getPicker($key)
+    public function getPicker($key) : \stdClass
     {
         $picker = $this->pickerQuery()->where(compact('key'))->first();
         if ($picker) {
@@ -330,12 +325,12 @@ class Picker
         }
     }
 
-    private function pickerQuery()
+    private function pickerQuery() : Builder
     {
         return ib_db("pickers")->where('namespace', $this->namespace);
     }
 
-    private function pickerDataQuery(array $pids = [])
+    private function pickerDataQuery(array $pids = []) : Builder
     {
         if (count($pids) === 0) {
             $pids = $this->unlockedPids();
