@@ -10,8 +10,9 @@ namespace Larastart\Tests\Databases;
 
 
 use Larastart\Support\Picker;
+use Larastart\Testing\TestCase;
 
-class PickerTest extends TestCase
+class PickerTest extends TestCase   
 {
     public function testRegister()
     {

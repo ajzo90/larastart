@@ -4,6 +4,7 @@ namespace Larastart\Tests\Databases;
 
 use Illuminate\Database\Eloquent\Model;
 use Larastart\Configurable\Configurable;
+use Larastart\Testing\TestCase;
 
 class User extends Model
 {

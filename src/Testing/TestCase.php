@@ -1,8 +1,7 @@
 <?php
-namespace Larastart\Tests\Databases;
+namespace Larastart\Testing;
 
 use Larastart\Providers\LarastartServiceProvider;
-use Larastart\Tests\Stubs\TestServiceProvider;
 
 class TestCase extends \Orchestra\Testbench\TestCase
 {
