@@ -7,6 +7,20 @@ if (!defined('ib_db_helpers')) {
         if (file_exists($query)) {
             $query = file_get_contents($query);
         }
+        $parts = explode(" ", strtoupper($query));
+        foreach (["DROP", "UPDATE", "TRUNCATE", "INSERT", "REPLACE", "ALTER", "CREATE", "DELETE"] as $operation) {
+            if (str_contains($operation, $parts)) {
+                throw new \Exception("Invalid operator: " . $operation);
+            }
+        }
+        return DB::connection($connection)->select($query, $params);
+    }
+
+    function ib_db_statement($query, $params, $connection = null)
+    {
+        if (file_exists($query)) {
+            $query = file_get_contents($query);
+        }
         return DB::connection($connection)->select($query, $params);
     }
 
@@ -17,7 +31,6 @@ if (!defined('ib_db_helpers')) {
         }
         return ib_db_select(__DIR__ . "/../database/queries/db_listing.sql");
     }
-
 
     function ib_db($table = null, $connection = null)
     {
