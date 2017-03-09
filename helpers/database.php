@@ -49,6 +49,11 @@ if (!defined('ib_db_helpers')) {
         return DB::raw($str);
     }
 
+    function ib_db_transaction(callable $f)
+    {
+        DB::transaction($f);
+    }
+
 }
 
 

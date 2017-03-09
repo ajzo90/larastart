@@ -17,6 +17,7 @@
     "files": [
       "./helpers/array.php",
       "./helpers/database.php",
+      "./helpers/functional.php",
       "./helpers/laravel.php",
       "./helpers/php.php",
       "./helpers/string.php",
