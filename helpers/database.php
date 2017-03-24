@@ -54,6 +54,32 @@ if (!defined('ib_db_helpers')) {
         DB::transaction($f);
     }
 
+    function ib_db_insert_ignore($table, array $attributes)
+    {
+        $attributes = collect($attributes);
+        $first = $attributes->first();
+        if (!is_array($first)) {
+            $attributes = collect([$attributes->toArray()]);
+        }
+        $keys = collect($attributes->first())->keys()
+            ->transform(function ($key) {
+                return "`" . $key . "`";
+            });
+        $bindings = [];
+        $query = "insert ignore into " . $table . " (" . $keys->implode(",") . ") values ";
+        $inserts = [];
+        foreach ($attributes as $data) {
+            $qs = [];
+            foreach ($data as $value) {
+                $qs[] = '?';
+                $bindings[] = $value;
+            }
+            $inserts[] = '(' . implode(",", $qs) . ')';
+        }
+        $query .= implode(",", $inserts);
+        return ib_db_statement($query, $bindings);
+    }
+
 }
 
 
