@@ -56,6 +56,9 @@ if (!defined('ib_db_helpers')) {
 
     function ib_db_insert_ignore($table, array $attributes)
     {
+        if (count($attributes) === 0) {
+            return 0;
+        }
         $attributes = collect($attributes);
         $first = $attributes->first();
         if (!is_array($first)) {
