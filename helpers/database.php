@@ -56,6 +56,16 @@ if (!defined('ib_db_helpers')) {
 
     function ib_db_insert_ignore($table, array $attributes)
     {
+        return __ib_db_insert_special($table, $attributes, 'insert ignore into');
+    }
+
+    function ib_db_insert_replace($table, array $attributes)
+    {
+        return __ib_db_insert_special($table, $attributes, 'replace into');
+    }
+
+    function __ib_db_insert_special($table, array $attributes, $special)
+    {
         if (count($attributes) === 0) {
             return 0;
         }
@@ -69,7 +79,7 @@ if (!defined('ib_db_helpers')) {
                 return "`" . $key . "`";
             });
         $bindings = [];
-        $query = "insert ignore into " . $table . " (" . $keys->implode(",") . ") values ";
+        $query = "{$special} {$table} (" . $keys->implode(",") . ") values ";
         $inserts = [];
         foreach ($attributes as $data) {
             $qs = [];
