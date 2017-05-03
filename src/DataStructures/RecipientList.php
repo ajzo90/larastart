@@ -38,6 +38,22 @@ class RecipientList
         return RecipientListModel::create(array_merge($data, ["key" => $key, "updated_at" => Carbon::now()->timestamp]));
     }
 
+    public static function cleanUp()
+    {
+        $toRemove = [];
+        foreach (RecipientList::all() as $list) {
+            if ($list->updated_at < Carbon::now()->timestamp - $list->minutes * 60 * 2) {
+                $toRemove[] = $list;
+            }
+        }
+
+        foreach ($toRemove as $list) {
+            $instance = self::getList($list->key);
+            $instance->forget();
+            RecipientList::where("id", $list->id)->delete();
+        }
+    }
+
     public static function remember($key, $minutes, callable $cb)
     {
         $list = self::getList($key);
