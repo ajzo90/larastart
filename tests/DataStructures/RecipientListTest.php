@@ -27,7 +27,7 @@ class RecipientListTest extends TestCase
             return [111, 2, 3, 12121];
         });
 
-        $list3 = RecipientList::remember("test3", 14, function () {
+        $list3 = RecipientList::forever("test3", function () {
             return [111, 2, 3];
         });
 
@@ -79,6 +79,6 @@ class RecipientListTest extends TestCase
         }
         // int(2)
         // int(3)
-        
+
     }
 }

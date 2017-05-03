@@ -15,6 +15,11 @@ class RecipientListModel extends Model
 
     public $timestamps = false;
 
+    public function isOld()
+    {
+        return $this->forever === false && $this->updated_at < Carbon::now()->timestamp - $this->minutes * 60;
+    }
+
 }
 
 class RecipientList
@@ -42,7 +47,7 @@ class RecipientList
     public static function cleanUp()
     {
         foreach (RecipientListModel::all() as $list) {
-            if ($list->updated_at < Carbon::now()->timestamp - $list->minutes * 60 * 2) {
+            if ($list->isOld()) {
                 self::forget($list->key);
             }
         }
@@ -55,15 +60,24 @@ class RecipientList
         return self::getList($key) ?? false;
     }
 
+    public static function forever($key, callable $cb)
+    {
+        return self::remember($key, PHP_INT_MAX, $cb);
+    }
+
     public static function remember($key, $minutes, callable $cb)
     {
         $list = self::getList($key);
 
-        if ($list && $list->updated_at > Carbon::now()->timestamp - $list->minutes * 60) {
+        if ($list && !$list->isOld()) {
             return new self($list);
         }
         if ($list === null) {
-            $list = self::getOrCreateList($key, compact('minutes'));
+            if ($minutes === PHP_INT_MAX) {
+                $list = self::getOrCreateList($key, ['forever' => true, 'minutes' => 0]);
+            } else {
+                $list = self::getOrCreateList($key, compact('minutes'));
+            }
         }
         $instance = new self($list);
         $instance->clear();
@@ -108,6 +122,7 @@ class RecipientList
     {
         return RecipientListModel::where("id", $this->id)->first()->length;
     }
+
 
     public function append(array $val)
     {
