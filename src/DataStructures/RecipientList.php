@@ -22,6 +22,7 @@ class RecipientList
     private static $dataTable = 'larastart_data_structure_list';
 
     private $id;
+    private $key;
 
 
     private static function getList($key)
@@ -40,18 +41,18 @@ class RecipientList
 
     public static function cleanUp()
     {
-        $toRemove = [];
         foreach (RecipientListModel::all() as $list) {
             if ($list->updated_at < Carbon::now()->timestamp - $list->minutes * 60 * 2) {
-                $toRemove[] = $list;
+                self::forget($list->key);
             }
         }
 
-        foreach ($toRemove as $list) {
-            $instance = new self($list);
-            $instance->forget();
-            RecipientListModel::where("id", $list->id)->delete();
-        }
+        // todo: clean up dangling lists...
+    }
+
+    public static function has($key)
+    {
+        return self::getList($key) ?? false;
     }
 
     public static function remember($key, $minutes, callable $cb)
@@ -65,15 +66,27 @@ class RecipientList
             $list = self::getOrCreateList($key, compact('minutes'));
         }
         $instance = new self($list);
-        $instance->forget();
+        $instance->clear();
         $instance->set($cb);
         return $instance;
 
     }
 
+    public static function forget($key)
+    {
+        $list = self::getList($key);
+        if ($list) {
+            $instance = new self($list);
+            $instance->clear();
+            RecipientListModel::where("id", $list->id)->delete();
+        }
+    }
+
+
     public function __construct(RecipientListModel $model)
     {
         $this->id = $model->id;
+        $this->key = $model->key;
     }
 
     public function query() : Builder
@@ -81,7 +94,7 @@ class RecipientList
         return ib_db(self::$dataTable)->where(self::$dataTable . ".list_id", $this->id)->select(self::$dataTable . ".key");
     }
 
-    public function forget()
+    public function clear()
     {
         $this->query()->delete();
     }
@@ -102,9 +115,13 @@ class RecipientList
             $data = array_map(function ($id) {
                 return ["key" => $id, "list_id" => $this->id];
             }, $chunk);
-            ib_db_insert_ignore(self::$dataTable, $data);
-            $this->update(["length" => $this->query()->count()]);
-
+            // check if list exists...
+            if (self::has($this->key)) {
+                ib_db_insert_ignore(self::$dataTable, $data);
+                $this->update(["length" => $this->query()->count()]);
+            } else {
+                throw new \Exception("The reference to the list is gone.. ");
+            }
         }
     }
 
@@ -137,7 +154,7 @@ class RecipientList
 
     public function set(callable $val)
     {
-        $this->forget();
+        $this->clear();
         $val = $val($this);
         if (is_array($val)) {
             $this->append($val);
