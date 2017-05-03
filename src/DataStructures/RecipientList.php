@@ -48,7 +48,7 @@ class RecipientList
         }
 
         foreach ($toRemove as $list) {
-            $instance = self::getList($list->key);
+            $instance = new self($list);
             $instance->forget();
             RecipientList::where("id", $list->id)->delete();
         }
