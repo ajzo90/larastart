@@ -75,6 +75,11 @@ class RecipientList
         RecipientListModel::where("id", $this->id)->update($data);
     }
 
+    public function length()
+    {
+        return RecipientListModel::where("id", $this->id)->first()->length;
+    }
+
     public function append(array $val)
     {
         foreach (array_chunk($val, 3500) as $chunk) {
@@ -82,6 +87,8 @@ class RecipientList
                 return ["key" => $id, "list_id" => $this->id];
             }, $chunk);
             ib_db_insert_ignore(self::$dataTable, $data);
+            $this->update(["length" => $this->query()->count()]);
+
         }
     }
 
