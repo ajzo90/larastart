@@ -31,7 +31,7 @@ class RecipientListTest extends TestCase
             return [111, 2, 3];
         });
 
-        // RecipientList::cleanUp()
+         RecipientList::cleanUp();
 
 //        $list1->length();
 

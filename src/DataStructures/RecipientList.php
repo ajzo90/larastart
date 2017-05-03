@@ -41,7 +41,7 @@ class RecipientList
     public static function cleanUp()
     {
         $toRemove = [];
-        foreach (RecipientList::all() as $list) {
+        foreach (RecipientListModel::all() as $list) {
             if ($list->updated_at < Carbon::now()->timestamp - $list->minutes * 60 * 2) {
                 $toRemove[] = $list;
             }
