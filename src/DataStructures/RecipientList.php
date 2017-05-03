@@ -50,7 +50,7 @@ class RecipientList
         foreach ($toRemove as $list) {
             $instance = new self($list);
             $instance->forget();
-            RecipientList::where("id", $list->id)->delete();
+            RecipientListModel::where("id", $list->id)->delete();
         }
     }
 
