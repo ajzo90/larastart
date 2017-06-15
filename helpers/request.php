@@ -20,20 +20,25 @@ if (!defined('ib_req_helpers')) {
             "content-type" => "application/json",
             "accept" => "application/json"
         ], $headers);
-        
+
         $compact_headers = [];
         foreach ($headers as $key => $val) {
             $compact_headers[] = $key . ": " . $val;
         }
 
-        $resp = ib_req($url, $method, json_encode($data), $headers);
+        $jsonString = $method === "GET" ? "" : json_encode($data);
+
+        $resp = ib_req($url, $method, $jsonString, $compact_headers);
         if (str_contains($resp, "cURL Error #:")) {
             return ["error" => $resp];
+        }
+        if ($resp === "") {
+            return ["error" => "empty response"];
         }
         return json_decode($resp);
     }
 
-    function ib_req($url, $method, $json_string = "", $headers = [])
+    function ib_req($url, $method, $json_string = "", $headers = []) : string
     {
 
         $curl = curl_init();
@@ -42,7 +47,7 @@ if (!defined('ib_req_helpers')) {
             CURLOPT_URL => $url,
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_ENCODING => "",
-            CURLOPT_MAXREDIRS => 5,
+            CURLOPT_MAXREDIRS => 10,
             CURLOPT_TIMEOUT => 30,
             CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
             CURLOPT_CUSTOMREQUEST => $method,
