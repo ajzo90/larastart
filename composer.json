@@ -20,6 +20,7 @@
       "./helpers/functional.php",
       "./helpers/laravel.php",
       "./helpers/php.php",
+      "./helpers/request.php",
       "./helpers/string.php",
       "./helpers/system.php"
     ],
