@@ -24,6 +24,17 @@ if (!defined('ib_arr_helpers')) {
         }
         return $values1;
     }
+    
+    function ib_array_is_sequencial(array $arr)
+    {
+        return [] === $arr || !ib_array_is_accoc($arr);
+    }
+
+    function ib_array_is_accoc(array $arr)
+    {
+        if (array() === $arr) return false;
+        return array_keys($arr) !== range(0, count($arr) - 1);
+    }
 
 
     function ib_array_sort(array $array)
