@@ -64,7 +64,12 @@ if (!defined('ib_db_helpers')) {
         return __ib_db_insert_special($table, $attributes, 'replace into');
     }
 
-    function __ib_db_insert_special($table, array $attributes, $special)
+    function ib_db_insert_on_duplicate_update($table, array $attributes)
+    {
+        return __ib_db_insert_special($table, $attributes, 'insert into', true);
+    }
+
+    function __ib_db_insert_special($table, array $attributes, $special, $dup = false)
     {
         if (count($attributes) === 0) {
             return 0;
@@ -90,6 +95,13 @@ if (!defined('ib_db_helpers')) {
             $inserts[] = '(' . implode(",", $qs) . ')';
         }
         $query .= implode(",", $inserts);
+
+        if ($dup) {
+            $query .= " on duplicate key update " . join(", ", $keys->map(function ($key) {
+                    return "$key=VALUES($key)";
+                })->toArray());
+        }
+
         return ib_db_statement($query, $bindings);
     }
 
