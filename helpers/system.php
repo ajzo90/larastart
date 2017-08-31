@@ -38,7 +38,7 @@ if (!defined('ib_sys_helpers')) {
         return array_only(ib_arrayify_proc(explode("\n", shell_exec('lscpu'))), $only);
 
     }
-    
+
     function ib_mem_info($only = ['MemTotal', 'MemFree', 'MemAvailable', 'Buffers', 'Cached'])
     {
         return array_only(ib_arrayify_proc(file('/proc/meminfo')), $only);
@@ -65,11 +65,11 @@ if (!defined('ib_sys_helpers')) {
     function human_to_bytes($human)
     {
         if (str_contains($human, "GB")) {
-            return str_replace_first("GB", "", $human) * 1024 * 1024 * 1024;
+            return trim(str_replace_first("GB", "", $human)) * 1024 * 1024 * 1024;
         } else if (str_contains($human, "MB")) {
-            return str_replace_first("MB", "", $human) * 1024 * 1024;
+            return trim(str_replace_first("MB", "", $human)) * 1024 * 1024;
         } else if (str_contains($human, "kB")) {
-            return str_replace_first("kB", "", $human) * 1024;
+            return trim(str_replace_first("kB", "", $human)) * 1024;
         }
         return $human;
     }
