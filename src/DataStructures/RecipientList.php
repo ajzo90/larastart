@@ -227,4 +227,10 @@ class RecipientList
         }
     }
 
+    public function join($q, $key)
+    {
+        $alias = "recipient_list_" . $this->id;
+        $q->join(self::$dataTable . "as $alias", "$alias.key", $key)
+            ->where("$alias.list_id", $this->id);
+    }
 }
