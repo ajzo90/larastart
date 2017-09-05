@@ -147,7 +147,7 @@ class RecipientList
     private function update($data)
     {
         if ($this->hasWritePermission) {
-            RecipientListModel::where('id', $this->id)->update(array_merge($data, ["locked_at" => time(), "updated_at" => time(), "touched_at" => time()]));
+            RecipientListModel::where('id', $this->id)->update(array_merge(["locked_at" => time()], $data, ["updated_at" => time(), "touched_at" => time()]));
         }
     }
 
