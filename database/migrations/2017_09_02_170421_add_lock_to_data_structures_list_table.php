@@ -15,7 +15,8 @@ class AddLockToDataStructuresListTable extends Migration
     {
 
         Schema::table('larastart_data_structure_list_meta', function (Blueprint $table) {
-            $table->tinyInteger("locked")->default(0);
+            $table->unsignedInteger("locked_at")->default(0);
+            $table->unsignedInteger("touched_at")->default(0);
         });
     }
 
@@ -27,7 +28,9 @@ class AddLockToDataStructuresListTable extends Migration
     public function down()
     {
         Schema::table('larastart_data_structure_list_meta', function (Blueprint $table) {
-            $table->dropColumn("locked");
+            $table->dropColumn("locked_at");
+            $table->dropColumn("touched_at");
+
         });
     }
 }

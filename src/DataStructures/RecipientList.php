@@ -3,7 +3,6 @@
 
 namespace Larastart\DataStructures;
 
-use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Query\Builder;
 
@@ -11,13 +10,13 @@ class RecipientListModel extends Model
 {
     public $table = 'larastart_data_structure_list_meta';
 
-    public $fillable = ['updated_at', 'forever', 'minutes', 'key', 'locked'];
+    public $fillable = ['updated_at', 'forever', 'minutes', 'key', 'locked_at', 'touched_at'];
 
     public $timestamps = false;
 
     public function isOld()
     {
-        return $this->locked === false && $this->forever === false && $this->updated_at < Carbon::now()->timestamp - $this->minutes * 60;
+        return $this->locked_at === 0 && $this->forever === false && $this->updated_at < time() - $this->minutes * 60;
     }
 
 }
@@ -31,7 +30,7 @@ class RecipientList
     private $hasWritePermission;
 
 
-    private static function getList($key)
+    public static function getList($key)
     {
         self::cleanUp();
         return RecipientListModel::where("key", $key)->first();
@@ -43,7 +42,7 @@ class RecipientList
         if ($list) {
             return $list;
         }
-        return RecipientListModel::create(array_merge($data, ["key" => $key, "updated_at" => Carbon::now()->timestamp]));
+        return RecipientListModel::create(array_merge($data, ["key" => $key, "updated_at" => time()]));
     }
 
     public static function cleanUp()
@@ -51,10 +50,12 @@ class RecipientList
         foreach (RecipientListModel::all() as $list) {
             if ($list->isOld()) {
                 self::forget($list->key);
+            } else if ($list->locked_at < time() - 5 * 60) { // lock expires after 5 minutes
+                \Log::info("Released expired lock on Recipient list " . $list->id);
+                $list->locked_at = 0;
+                $list->save();
             }
         }
-
-        // todo: clean up dangling lists...
     }
 
     public static function has($key)
@@ -68,26 +69,35 @@ class RecipientList
         return self::remember($key, PHP_INT_MAX, $cb);
     }
 
+    public static function setList($key, $minutes, callable $cb)
+    {
+        return self::_remember($key, $minutes, $cb, true);
+    }
+
     public static function remember($key, $minutes, callable $cb)
+    {
+        return self::_remember($key, $minutes, $cb, false);
+    }
+
+    private static function _remember($key, $minutes, callable $cb, $update)
     {
         self::cleanUp();
         $list = self::getList($key);
 
-        if ($list && !$list->isOld()) {
-            return new self($list);
-        }
-        if ($list === null) {
-            if ($minutes === PHP_INT_MAX) {
-                $list = self::getOrCreateList($key, ['forever' => true, 'minutes' => 0]);
-            } else {
-                $list = self::getOrCreateList($key, compact('minutes'));
+        if ($list) {
+            if ($update === false) {
+                return new self($list);
             }
+        } else if ($minutes === PHP_INT_MAX) {
+            $list = self::getOrCreateList($key, ['forever' => true, 'minutes' => 0]);
+        } else {
+            $list = self::getOrCreateList($key, compact('minutes'));
         }
+
         $instance = new self($list);
         $instance->clear();
         $instance->set($cb);
         return $instance;
-
     }
 
     public static function forget($key)
@@ -101,18 +111,17 @@ class RecipientList
     }
 
 
-    public function __construct(RecipientListModel $model)
+    private function __construct(RecipientListModel $model)
     {
         $this->id = $model->id;
         $this->key = $model->key;
         $this->hasWritePermission = false;
+        RecipientListModel::where('id', $this->id)->update(["touched_at" => time()]);
     }
 
     public function __destruct()
     {
-        if ($this->hasWritePermission) {
-            $this->update(["locked" => false]);
-        }
+        $this->update(["locked_at" => 0]);
     }
 
     public function query() : Builder
@@ -125,12 +134,6 @@ class RecipientList
         $this->query()->delete();
     }
 
-    private function update($data)
-    {
-        RecipientListModel::where("id", $this->id)->update($data);
-    }
-
-
     private function getAttr($key)
     {
         return RecipientListModel::where("id", $this->id)->value($key);
@@ -141,6 +144,13 @@ class RecipientList
         return $this->getAttr("length");
     }
 
+    private function update($data)
+    {
+        if ($this->hasWritePermission) {
+            RecipientListModel::where('id', $this->id)->update(array_merge($data, ["locked_at" => time(), "updated_at" => time(), "touched_at" => time()]));
+        }
+    }
+
     private function canMutateList()
     {
         if ($this->hasWritePermission) {
@@ -149,10 +159,12 @@ class RecipientList
 
         try {
             app('db')->transaction(function () {
-                $record = RecipientListModel::where('id', $this->id)->lockForUpdate()->first();
-                $record->locked = true;
-                $record->save();
-                $this->hasWritePermission = true;
+                $record = RecipientListModel::where('id', $this->id)->where("locked_at", 0)->lockForUpdate()->first();
+                if ($record) {
+                    $record->locked_at = time();
+                    $record->save();
+                    $this->hasWritePermission = true;
+                }
             });
         } catch (\Exception $ignored) {
         }
@@ -167,17 +179,13 @@ class RecipientList
             throw new \Exception("RecipientListIsLockedForMutations");
         }
 
-        if (self::has($this->key)) {
-            foreach (array_chunk($val, 3500) as $chunk) {
-                $data = array_map(function ($id) {
-                    return ["key" => $id, "list_id" => $this->id];
-                }, $chunk);
-                ib_db_insert_ignore(self::$dataTable, $data);
-            }
-            $this->update(["length" => $this->query()->count()]);
-        } else {
-            throw new \Exception("The reference to the list is gone.. ");
+        foreach (array_chunk($val, 3500) as $chunk) {
+            $data = array_map(function ($id) {
+                return ["key" => $id, "list_id" => $this->id];
+            }, $chunk);
+            ib_db_insert_ignore(self::$dataTable, $data);
         }
+        $this->update(["length" => $this->query()->count()]);
     }
 
     public function unionWith(array $lists = [])
@@ -213,11 +221,10 @@ class RecipientList
             throw new \Exception("RecipientListIsLockedForMutations");
         }
         $this->clear();
-        $val = $val($this);
+        $data = $val($this);
         if (is_array($val)) {
-            $this->append($val);
+            $this->append($data);
         }
-        $this->update(["updated_at" => Carbon::now()->timestamp]);
     }
 
 }
