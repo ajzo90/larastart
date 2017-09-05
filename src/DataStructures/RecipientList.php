@@ -179,7 +179,7 @@ class RecipientList
             throw new \Exception("RecipientListIsLockedForMutations");
         }
 
-        foreach (array_chunk($val, 3500) as $chunk) {
+        foreach (array_chunk($val, 5000) as $chunk) {
             $data = array_map(function ($id) {
                 return ["key" => $id, "list_id" => $this->id];
             }, $chunk);
