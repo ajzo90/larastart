@@ -11,13 +11,13 @@ class RecipientListModel extends Model
 {
     public $table = 'larastart_data_structure_list_meta';
 
-    public $fillable = ['updated_at', 'forever', 'minutes', 'key'];
+    public $fillable = ['updated_at', 'forever', 'minutes', 'key', 'locked'];
 
     public $timestamps = false;
 
     public function isOld()
     {
-        return $this->forever === false && $this->updated_at < Carbon::now()->timestamp - $this->minutes * 60;
+        return $this->locked === false && $this->forever === false && $this->updated_at < Carbon::now()->timestamp - $this->minutes * 60;
     }
 
 }
@@ -32,6 +32,7 @@ class RecipientList
 
     private static function getList($key)
     {
+        self::cleanUp();
         return RecipientListModel::where("key", $key)->first();
     }
 
@@ -57,6 +58,7 @@ class RecipientList
 
     public static function has($key)
     {
+        self::cleanUp();
         return self::getList($key) ?? false;
     }
 
@@ -67,6 +69,7 @@ class RecipientList
 
     public static function remember($key, $minutes, callable $cb)
     {
+        self::cleanUp();
         $list = self::getList($key);
 
         if ($list && !$list->isOld()) {
@@ -101,6 +104,12 @@ class RecipientList
     {
         $this->id = $model->id;
         $this->key = $model->key;
+        $this->update(["locked" => true]);
+    }
+
+    public function __destruct()
+    {
+        $this->update(["locked" => false]);
     }
 
     public function query() : Builder
@@ -120,12 +129,16 @@ class RecipientList
 
     public function length()
     {
-        return RecipientListModel::where("id", $this->id)->first()->length;
+        return RecipientListModel::where("id", $this->id)->value("length");
     }
 
 
     public function append(array $val)
     {
+        if (RecipientListModel::where("id", $this->id)->where("locked", 1)->exists) {
+            throw new \Exception("RecipientListIsLocked");
+        }
+
         foreach (array_chunk($val, 3500) as $chunk) {
             $data = array_map(function ($id) {
                 return ["key" => $id, "list_id" => $this->id];
