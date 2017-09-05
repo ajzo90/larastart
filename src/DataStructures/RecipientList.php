@@ -28,6 +28,7 @@ class RecipientList
 
     private $id;
     private $key;
+    private $hasWritePermission;
 
 
     private static function getList($key)
@@ -104,12 +105,14 @@ class RecipientList
     {
         $this->id = $model->id;
         $this->key = $model->key;
-        $this->update(["locked" => true]);
+        $this->hasWritePermission = false;
     }
 
     public function __destruct()
     {
-        $this->update(["locked" => false]);
+        if ($this->hasWritePermission) {
+            $this->update(["locked" => false]);
+        }
     }
 
     public function query() : Builder
@@ -127,29 +130,53 @@ class RecipientList
         RecipientListModel::where("id", $this->id)->update($data);
     }
 
+
+    private function getAttr($key)
+    {
+        return RecipientListModel::where("id", $this->id)->value($key);
+    }
+
     public function length()
     {
-        return RecipientListModel::where("id", $this->id)->value("length");
+        return $this->getAttr("length");
+    }
+
+    private function canMutateList()
+    {
+        if ($this->hasWritePermission) {
+            return $this->hasWritePermission;
+        }
+
+        try {
+            app('db')->transaction(function () {
+                $record = RecipientListModel::where('id', $this->id)->lockForUpdate()->first();
+                $record->locked = true;
+                $record->save();
+                $this->hasWritePermission = true;
+            });
+        } catch (\Exception $ignored) {
+        }
+        return $this->hasWritePermission;
     }
 
 
     public function append(array $val)
     {
-        if (RecipientListModel::where("id", $this->id)->where("locked", 1)->exists) {
-            throw new \Exception("RecipientListIsLocked");
+
+        if (!$this->canMutateList()) {
+            throw new \Exception("RecipientListIsLockedForMutations");
         }
 
-        foreach (array_chunk($val, 3500) as $chunk) {
-            $data = array_map(function ($id) {
-                return ["key" => $id, "list_id" => $this->id];
-            }, $chunk);
-            // check if list exists...
-            if (self::has($this->key)) {
+        if (self::has($this->key)) {
+            foreach (array_chunk($val, 3500) as $chunk) {
+                $data = array_map(function ($id) {
+                    return ["key" => $id, "list_id" => $this->id];
+                }, $chunk);
                 ib_db_insert_ignore(self::$dataTable, $data);
-                $this->update(["length" => $this->query()->count()]);
-            } else {
-                throw new \Exception("The reference to the list is gone.. ");
             }
+            $this->update(["length" => $this->query()->count()]);
+        } else {
+            throw new \Exception("The reference to the list is gone.. ");
         }
     }
 
@@ -182,6 +209,9 @@ class RecipientList
 
     public function set(callable $val)
     {
+        if (!$this->canMutateList()) {
+            throw new \Exception("RecipientListIsLockedForMutations");
+        }
         $this->clear();
         $val = $val($this);
         if (is_array($val)) {
