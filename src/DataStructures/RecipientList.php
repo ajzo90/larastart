@@ -215,6 +215,14 @@ class RecipientList
         return $q;
     }
 
+    private function insertQuery(Builder $builder)
+    {
+        $builder->selectRaw($this->id);
+        $insertQuery = 'INSERT IGNORE into ' . self::$dataTable . ' (`key`,`list_id`) ' . $builder->toSql();
+        \DB::insert($insertQuery, $builder->getBindings());
+        $this->update(["length" => $this->query()->count()]);
+    }
+
     public function set(callable $val)
     {
         if (!$this->canMutateList()) {
@@ -222,7 +230,9 @@ class RecipientList
         }
         $this->clear();
         $data = $val($this);
-        if (is_array($val)) {
+        if ($data instanceof Builder) {
+            $this->insertQuery($data);
+        } else if (is_array($val)) {
             $this->append($data);
         }
     }
