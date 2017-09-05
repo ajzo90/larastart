@@ -47,10 +47,15 @@ class RecipientList
 
     public static function cleanUp()
     {
+        $start = time();
         foreach (RecipientListModel::all() as $list) {
             if ($list->isOld()) {
                 self::_forget($list);
                 \Log::info("Forget Recipient list " . $list->key);
+                // to not get stuck in the cleaning..
+                if (time() - $start > 10) {
+                    return;
+                }
             } else if ($list->locked_at > 0 && $list->locked_at < time() - 5 * 60) { // lock expires after 5 minutes
                 \Log::info("Released expired lock on Recipient list " . $list->id);
                 $list->locked_at = 0;
