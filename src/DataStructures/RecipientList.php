@@ -50,7 +50,7 @@ class RecipientList
         foreach (RecipientListModel::all() as $list) {
             if ($list->isOld()) {
                 self::forget($list->key);
-            } else if ($list->locked_at < time() - 5 * 60) { // lock expires after 5 minutes
+            } else if ($list->locked_at > 0 && $list->locked_at < time() - 5 * 60) { // lock expires after 5 minutes
                 \Log::info("Released expired lock on Recipient list " . $list->id);
                 $list->locked_at = 0;
                 $list->save();
