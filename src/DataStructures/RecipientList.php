@@ -16,7 +16,7 @@ class RecipientListModel extends Model
 
     public function isOld()
     {
-        return $this->locked_at === 0 && $this->forever === false && $this->updated_at < time() - $this->minutes * 60;
+        return $this->locked_at === 0 && $this->forever === 0 && $this->updated_at < time() - $this->minutes * 60;
     }
 
 }
@@ -49,7 +49,8 @@ class RecipientList
     {
         foreach (RecipientListModel::all() as $list) {
             if ($list->isOld()) {
-                self::forget($list->key);
+                self::_forget($list);
+                \Log::info("Forget Recipient list " . $list->key);
             } else if ($list->locked_at > 0 && $list->locked_at < time() - 5 * 60) { // lock expires after 5 minutes
                 \Log::info("Released expired lock on Recipient list " . $list->id);
                 $list->locked_at = 0;
@@ -102,7 +103,11 @@ class RecipientList
 
     public static function forget($key)
     {
-        $list = self::getList($key);
+        self::_forget(self::getList($key));
+    }
+
+    private static function _forget($list = nulll)
+    {
         if ($list) {
             $instance = new self($list);
             $instance->clear();
