@@ -28,14 +28,7 @@ if (!defined('ib_req_helpers')) {
 
         $jsonString = $method === "GET" ? "" : json_encode($data);
 
-        $resp = ib_req($url, $method, $jsonString, $compact_headers);
-        if (str_contains($resp, "cURL Error #:")) {
-            return ["error" => $resp];
-        }
-        if ($resp === "") {
-            return ["error" => "empty response"];
-        }
-        return json_decode($resp);
+        return json_decode(ib_req($url, $method, $jsonString, $compact_headers));
     }
 
     function ib_req($url, $method, $json_string = "", $headers = []) : string
@@ -58,15 +51,18 @@ if (!defined('ib_req_helpers')) {
         curl_setopt_array($curl, $conf);
 
         $response = curl_exec($curl);
+        $info = curl_getinfo($curl);
         $err = curl_error($curl);
-
         curl_close($curl);
 
-        if ($err) {
-            return "cURL Error #:" . $err;
-        } else {
+        $status = $info["http_code"];
+
+        if ($status >= 200 && $status < 300) {
             return $response;
         }
+
+        throw new \Exception("Request exception: $method '$url'. Status: $status. Error: $err");
+
     }
 
 
