@@ -69,7 +69,26 @@ if (!defined('ib_db_helpers')) {
         return __ib_db_insert_special($table, $attributes, 'insert into', true);
     }
 
-    function ib_db_insert_immutable($table, array $attributes, $hash_col = 'hash', $primary_col = 'id', $created_at_col = null)
+    function ib_db_insert_immutable($table, array $data, $created_at_col = null, $hash_col = 'hash', $primary_col = 'id')
+    {
+        $exclude = [$hash_col, $primary_col];
+        $data = array_except($data, $exclude);
+        $hash = ib_array_hash($data);
+
+        $res = ib_db($table)->where($hash_col, $hash)->value($primary_col);
+        if ($res) {
+            return $res;
+        }
+
+        $data[$hash_col] = $hash;
+        if ($created_at_col) {
+            $data[$created_at_col] = time();
+        }
+
+        return ib_db($table)->insertGetId($data);
+    }
+
+    function ib_db_insert_immutable_batch($table, array $attributes, $created_at_col = null, $hash_col = 'hash', $primary_col = 'id')
     {
         $now = time();
         $exclude = [$hash_col, $primary_col];
@@ -129,7 +148,7 @@ if (!defined('ib_db_helpers')) {
             $inserts[] = '(' . implode(",", $qs) . ')';
         }
         $query .= implode(",", $inserts);
-        
+
         if ($dup) {
             $query .= " on duplicate key update " . join(", ", $keys->map(function ($key) {
                     return "$key=VALUES($key)";
