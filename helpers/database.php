@@ -69,6 +69,40 @@ if (!defined('ib_db_helpers')) {
         return __ib_db_insert_special($table, $attributes, 'insert into', true);
     }
 
+    function ib_db_insert_immutable($table, array $attributes, $hash_col = 'hash', $primary_col = 'id', $created_at_col = null)
+    {
+        $now = time();
+        $exclude = [$hash_col, $primary_col];
+        $hashes = [];
+        foreach ($attributes as $i => $row) {
+            $row = array_except($row, $exclude);
+            $hash = ib_array_hash($row);
+            $hashes[] = $hash;
+            $row[$hash_col] = $hash;
+            $attributes[$i] = $row;
+        }
+        $hash_to_id = ib_db($table)->whereIn($hash_col, $hashes)->pluck($primary_col, $hash_col);
+
+        $toInsert = [];
+        foreach ($attributes as $i => $row) {
+            $hash = $row[$hash_col];
+            if ($id = $hash_to_id[$hash] ?? false) {
+            } else {
+                if ($created_at_col) {
+                    $row[$created_at_col] = $now;
+                }
+                $toInsert[] = $row;
+            }
+        }
+        ib_db_insert_ignore($table, $toInsert);
+
+        $hash_to_id = ib_db($table)->whereIn($hash_col, $hashes)->pluck($primary_col, $hash_col);
+
+        return array_map(function ($item) use ($hash_to_id, $hash_col) {
+            return $hash_to_id[$item[$hash_col]];
+        }, $attributes);
+    }
+
     function __ib_db_insert_special($table, array $attributes, $special, $dup = false)
     {
         if (count($attributes) === 0) {
@@ -95,6 +129,8 @@ if (!defined('ib_db_helpers')) {
             $inserts[] = '(' . implode(",", $qs) . ')';
         }
         $query .= implode(",", $inserts);
+
+        var_dump($query);
 
         if ($dup) {
             $query .= " on duplicate key update " . join(", ", $keys->map(function ($key) {
