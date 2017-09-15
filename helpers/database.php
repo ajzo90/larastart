@@ -129,9 +129,7 @@ if (!defined('ib_db_helpers')) {
             $inserts[] = '(' . implode(",", $qs) . ')';
         }
         $query .= implode(",", $inserts);
-
-        var_dump($query);
-
+        
         if ($dup) {
             $query .= " on duplicate key update " . join(", ", $keys->map(function ($key) {
                     return "$key=VALUES($key)";
