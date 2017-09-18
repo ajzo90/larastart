@@ -8,12 +8,16 @@ if (!defined('ib_str_helpers')) {
         return substr($haystack, 0, strlen($needle)) === $needle;
     }
 
+    function ib_string_ends_with($haystack, $needle)
+    {
+        return substr($haystack, strlen($haystack) - strlen($needle), strlen($needle)) === $needle;
+    }
+
     function ib_labels($str)
     {
         return ucwords(str_replace("_", " ", snake_case($str)));
     }
-
-
+    
     function ib_trim_all($str, $what = NULL, $with = ' ')
     {
         if ($what === NULL) {
