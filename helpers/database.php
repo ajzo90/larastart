@@ -78,7 +78,7 @@ if (!defined('ib_db_helpers')) {
     {
         $exclude = [$hash_col, $primary_col];
         $data = array_except($data, $exclude);
-        $hash = ib_array_hash($data);
+        $hash = $data[$hash_col] ?? ib_array_hash($data);
 
         $res = ib_db($table)->where($hash_col, $hash)->value($primary_col);
         if ($res) {
@@ -109,7 +109,7 @@ if (!defined('ib_db_helpers')) {
         $hashes = [];
         foreach ($attributes as $i => $row) {
             $row = array_except($row, $exclude);
-            $hash = ib_array_hash($row);
+            $hash = $row[$hash_col] ?? ib_array_hash($row);
             $hashes[] = $hash;
             $row[$hash_col] = $hash;
             $attributes[$i] = $row;
