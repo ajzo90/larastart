@@ -16,6 +16,11 @@ if (!defined('ib_db_helpers')) {
         return DB::connection($connection)->select($query, $params);
     }
 
+    function ib_db_raw_query($query, $connection = null)
+    {
+        return DB::connection($connection)->statement($query);
+    }
+
     function ib_db_statement($query, $params, $connection = null)
     {
         if (file_exists($query)) {
@@ -86,6 +91,15 @@ if (!defined('ib_db_helpers')) {
         }
 
         return ib_db($table)->insertGetId($data);
+    }
+
+    function ib_db_initiate($table, array $values, $primary = "id")
+    {
+        $q = "";
+        foreach ($values as $value) {
+            $q .= "(" . $value . "),";
+        }
+        return ib_db_raw_query("insert ignore into {$table} ({$primary}) VALUES " . rtrim($q, ","));
     }
 
     function ib_db_insert_immutable_batch($table, array $attributes, $created_at_col = null, $hash_col = 'hash', $primary_col = 'id')
