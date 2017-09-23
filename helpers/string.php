@@ -13,11 +13,24 @@ if (!defined('ib_str_helpers')) {
         return substr($haystack, strlen($haystack) - strlen($needle), strlen($needle)) === $needle;
     }
 
+    function ib_string_is_wrapped($string, $wrap_with)
+    {
+        return ib_string_starts_with($string, $wrap_with) && ib_string_ends_with($string, $wrap_with);
+    }
+
+    function ib_string_wrap($string, $wrap_with)
+    {
+        if (ib_string_is_wrapped($string, $wrap_with)) {
+            return $string;
+        }
+        return $wrap_with . $string . $wrap_with;
+    }
+
     function ib_labels($str)
     {
         return ucwords(str_replace("_", " ", snake_case($str)));
     }
-    
+
     function ib_trim_all($str, $what = NULL, $with = ' ')
     {
         if ($what === NULL) {
