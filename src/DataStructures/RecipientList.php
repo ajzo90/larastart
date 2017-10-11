@@ -111,7 +111,7 @@ class RecipientList
         self::_forget(self::getList($key));
     }
 
-    private static function _forget($list = nulll)
+    private static function _forget($list = null)
     {
         if ($list) {
             $instance = new self($list);

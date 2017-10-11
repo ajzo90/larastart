@@ -36,7 +36,7 @@ class Buffer
     public function __destruct()
     {
         if ($this->bufferSize > 0) {
-            \Log::warning("Buffer size > 0 in destructor..");
+            \Log::warning("Buffer size {$this->bufferSize} > 0 in destructor..");
         }
     }
 
