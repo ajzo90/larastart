@@ -70,14 +70,14 @@ class RecipientList
         return self::getList($key) ?? false;
     }
 
+    public static function setList($key, $minutes, callable $cb = null)
+    {
+        return self::_remember($key, $minutes, $cb, true);
+    }
+
     public static function forever($key, callable $cb)
     {
         return self::remember($key, PHP_INT_MAX, $cb);
-    }
-
-    public static function setList($key, $minutes, callable $cb)
-    {
-        return self::_remember($key, $minutes, $cb, true);
     }
 
     public static function remember($key, $minutes, callable $cb)
@@ -85,7 +85,7 @@ class RecipientList
         return self::_remember($key, $minutes, $cb, false);
     }
 
-    private static function _remember($key, $minutes, callable $cb, $update)
+    private static function _remember($key, $minutes, callable $cb = null, $update)
     {
         self::cleanUp();
         $list = self::getList($key);
@@ -102,7 +102,9 @@ class RecipientList
 
         $instance = new self($list);
         $instance->clear();
-        $instance->set($cb);
+        if ($cb) {
+            $instance->set($cb);
+        }
         return $instance;
     }
 
@@ -181,7 +183,6 @@ class RecipientList
         return $this->hasWritePermission;
     }
 
-
     public function append(array $val)
     {
 
@@ -197,6 +198,7 @@ class RecipientList
         }
         $this->update(["length" => $this->query()->count()]);
     }
+
 
     public function unionWith(array $lists = [])
     {
@@ -225,13 +227,17 @@ class RecipientList
         return $q;
     }
 
-    private function insertQuery(Builder $builder)
+    public function insertQuery(Builder $builder)
     {
+        if (!$this->canMutateList()) {
+            throw new \Exception("RecipientListIsLockedForMutations");
+        }
         $builder->selectRaw($this->id);
         $insertQuery = 'INSERT IGNORE into ' . self::$dataTable . ' (`key`,`list_id`) ' . $builder->toSql();
         \DB::insert($insertQuery, $builder->getBindings());
         $this->update(["length" => $this->query()->count()]);
     }
+
 
     public function set(callable $val)
     {
@@ -240,6 +246,7 @@ class RecipientList
         }
         $this->clear();
         $data = $val($this);
+
         if ($data instanceof Builder) {
             $this->insertQuery($data);
         } else if (is_array($val)) {
