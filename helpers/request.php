@@ -13,6 +13,15 @@ if (!defined('ib_req_helpers')) {
         return ib_json_req($url, "POST", $data, $headers);
     }
 
+    function ib_req_create_header_array(array $map)
+    {
+        $compact_headers = [];
+        foreach ($map as $key => $val) {
+            $compact_headers[] = $key . ": " . $val;
+        }
+        return $compact_headers;
+    }
+
     function ib_json_req($url, $method, array $data = [], array $headers = [])
     {
         $headers = array_merge([
@@ -21,10 +30,7 @@ if (!defined('ib_req_helpers')) {
             "accept" => "application/json"
         ], $headers);
 
-        $compact_headers = [];
-        foreach ($headers as $key => $val) {
-            $compact_headers[] = $key . ": " . $val;
-        }
+        $compact_headers = ib_req_create_header_array($headers);
 
         $jsonString = $method === "GET" ? "" : json_encode($data);
 
