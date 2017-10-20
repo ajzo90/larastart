@@ -7,9 +7,9 @@ if (!defined('ib_db_helpers')) {
         if (file_exists($query)) {
             $query = file_get_contents($query);
         }
-        $parts = explode(" ", strtoupper($query));
+        $words = explode(" ", strtoupper($query));
         foreach (["DROP", "UPDATE", "TRUNCATE", "INSERT", "REPLACE", "ALTER", "CREATE", "DELETE"] as $operation) {
-            if (str_contains($operation, $parts)) {
+            if (in_array($operation, $words)) {
                 throw new \Exception("Invalid operator: " . $operation);
             }
         }
