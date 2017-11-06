@@ -67,7 +67,7 @@ if (!defined('ib_req_helpers')) {
             return $response;
         }
 
-        throw new \Exception("Request exception: $method '$url'. Status: $status. Error: $err");
+        throw new \Exception("Request exception: $method '$url'. Status: $status. Error: $err. Resp: $response");
 
     }
 
