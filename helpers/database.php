@@ -24,7 +24,6 @@ if (!defined('ib_db_helpers')) {
 
     function ib_db_statement($query, $bindings = [], $connection = null)
     {
-        var_dump($query, $bindings);
         if (file_exists($query)) {
             $query = file_get_contents($query);
         }
