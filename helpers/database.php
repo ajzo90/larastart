@@ -2,7 +2,7 @@
 
 if (!defined('ib_db_helpers')) {
     define('ib_db_helpers', 1);
-    function ib_db_select($query, $params = [], $connection = null)
+    function ib_db_select($query, $bindings = [], $connection = null)
     {
         if (file_exists($query)) {
             $query = file_get_contents($query);
@@ -13,20 +13,22 @@ if (!defined('ib_db_helpers')) {
                 throw new \Exception("Invalid operator: " . $operation);
             }
         }
-        return DB::connection($connection)->select($query, $params);
+        return DB::connection($connection)->select($query, $bindings);
     }
 
     function ib_db_raw_query($query, $connection = null)
     {
+        \Log::info("Deprecated function: ib_db_raw_query. Please use ib_db_statement instead...");
         return DB::connection($connection)->statement($query);
     }
 
-    function ib_db_statement($query, $params, $connection = null)
+    function ib_db_statement($query, $bindings = [], $connection = null)
     {
+        var_dump($query, $bindings);
         if (file_exists($query)) {
             $query = file_get_contents($query);
         }
-        return DB::connection($connection)->select($query, $params);
+        return DB::connection($connection)->statement($query, $bindings);
     }
 
     function ib_db_listings($database = null)
@@ -78,7 +80,7 @@ if (!defined('ib_db_helpers')) {
     {
         $exclude = [$hash_col, $primary_col];
         $data = array_except($data, $exclude);
-        $hash = $data[$hash_col] ?? ib_array_hash($data);
+        $hash = $data[$hash_col] ?? ib_array_hash($data); // todo: wtf. we remove hash col in the first line, this is stupid
 
         $res = ib_db($table)->where($hash_col, $hash)->value($primary_col);
         if ($res) {
@@ -96,10 +98,15 @@ if (!defined('ib_db_helpers')) {
     function ib_db_initiate($table, array $values, $primary = "id")
     {
         $q = "";
+        $bindings = [];
         foreach ($values as $value) {
+            if (!is_numeric($value)) {
+                $bindings[] = $value;
+                $value = '?';
+            }
             $q .= "(" . $value . "),";
         }
-        return ib_db_raw_query("insert ignore into {$table} ({$primary}) VALUES " . rtrim($q, ","));
+        return ib_db_statement("insert ignore into {$table} ({$primary}) VALUES " . rtrim($q, ","), $bindings);
     }
 
     function ib_db_insert_immutable_batch($table, array $attributes, $created_at_col = null, $hash_col = 'hash', $primary_col = 'id')
@@ -153,13 +160,17 @@ if (!defined('ib_db_helpers')) {
         $bindings = [];
         $query = "{$special} {$table} (" . $keys->implode(",") . ") values ";
         $inserts = [];
+
         foreach ($attributes as $data) {
-            $qs = [];
+            $inner = '';
             foreach ($data as $value) {
-                $qs[] = '?';
-                $bindings[] = $value;
+                if (!is_numeric($value)) {
+                    $bindings[] = $value;
+                    $value = '?';
+                }
+                $inner .= $value . ",";
             }
-            $inserts[] = '(' . implode(",", $qs) . ')';
+            $inserts[] = '(' . rtrim($inner, ",") . ')';
         }
         $query .= implode(",", $inserts);
 
