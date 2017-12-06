@@ -7,18 +7,23 @@ if (!defined('ib_db_helpers')) {
         if (file_exists($query)) {
             $query = file_get_contents($query);
         }
-        $words = explode(" ", strtoupper($query));
-        foreach (["DROP", "UPDATE", "TRUNCATE", "INSERT", "REPLACE", "ALTER", "CREATE", "DELETE"] as $operation) {
+        $words = explode(' ', strtoupper($query));
+        foreach (['DROP', 'UPDATE', 'TRUNCATE', 'INSERT', 'REPLACE', 'ALTER', 'CREATE', 'DELETE'] as $operation) {
             if (in_array($operation, $words)) {
-                throw new \Exception("Invalid operator: " . $operation);
+                throw new \Exception('Invalid operator: ' . $operation);
             }
         }
         return DB::connection($connection)->select($query, $bindings);
     }
 
+    function ib_db_is_safe_number($str)
+    {
+        return sprintf('%d', intval($str)) === '' . $str;
+    }
+
     function ib_db_raw_query($query, $connection = null)
     {
-        \Log::info("Deprecated function: ib_db_raw_query. Please use ib_db_statement instead...");
+        \Log::info('Deprecated function: ib_db_raw_query. Please use ib_db_statement instead...');
         return DB::connection($connection)->statement($query);
     }
 
@@ -33,9 +38,9 @@ if (!defined('ib_db_helpers')) {
     function ib_db_listings($database = null)
     {
         if ($database) {
-            return ib_db_select(__DIR__ . "/../database/queries/db_table_listings.sql", ["db" => $database]);
+            return ib_db_select(__DIR__ . '/../database/queries/db_table_listings.sql', ['b' => $database]);
         }
-        return ib_db_select(__DIR__ . "/../database/queries/db_listing.sql");
+        return ib_db_select(__DIR__ . '/../database/queries/db_listing.sql');
     }
 
     function ib_db($table = null, $connection = null)
@@ -94,18 +99,20 @@ if (!defined('ib_db_helpers')) {
         return ib_db($table)->insertGetId($data);
     }
 
-    function ib_db_initiate($table, array $values, $primary = "id")
+
+    function ib_db_initiate($table, array $values, $primary = 'id')
     {
-        $q = "";
+        $q = '';
         $bindings = [];
         foreach ($values as $value) {
-            if (!is_numeric($value)) {
+            if (ib_db_is_safe_number($value)) {
+                $q .= '(' . $value . '),';
+            } else {
                 $bindings[] = $value;
-                $value = '?';
+                $q .= '(?),';
             }
-            $q .= "(" . $value . "),";
         }
-        return ib_db_statement("insert ignore into {$table} ({$primary}) VALUES " . rtrim($q, ","), $bindings);
+        return ib_db_statement("insert ignore into {$table} ({$primary}) VALUES " . rtrim($q, ','), $bindings);
     }
 
     function ib_db_insert_immutable_batch($table, array $attributes, $created_at_col = null, $hash_col = 'hash', $primary_col = 'id')
@@ -154,27 +161,28 @@ if (!defined('ib_db_helpers')) {
         }
         $keys = collect($attributes->first())->keys()
             ->transform(function ($key) {
-                return "`" . $key . "`";
+                return '`' . $key . '`';
             });
         $bindings = [];
-        $query = "{$special} {$table} (" . $keys->implode(",") . ") values ";
+        $query = "{$special} {$table} (" . $keys->implode(',') . ') values ';
         $inserts = [];
 
         foreach ($attributes as $data) {
             $inner = '';
             foreach ($data as $value) {
-                if (!is_numeric($value)) {
+                if (ib_db_is_safe_number($value)) {
+                    $inner .= $value . ',';
+                } else {
                     $bindings[] = $value;
-                    $value = '?';
+                    $inner .= '?,';
                 }
-                $inner .= $value . ",";
             }
-            $inserts[] = '(' . rtrim($inner, ",") . ')';
+            $inserts[] = '(' . rtrim($inner, ',') . ')';
         }
-        $query .= implode(",", $inserts);
+        $query .= implode(',', $inserts);
 
         if ($dup) {
-            $query .= " on duplicate key update " . join(", ", $keys->map(function ($key) {
+            $query .= ' on duplicate key update ' . join(',', $keys->map(function ($key) {
                     return "$key=VALUES($key)";
                 })->toArray());
         }
