@@ -38,7 +38,7 @@ if (!defined('ib_db_helpers')) {
     function ib_db_listings($database = null)
     {
         if ($database) {
-            return ib_db_select(__DIR__ . '/../database/queries/db_table_listings.sql', ['b' => $database]);
+            return ib_db_select(__DIR__ . '/../database/queries/db_table_listings.sql', ['db' => $database]);
         }
         return ib_db_select(__DIR__ . '/../database/queries/db_listing.sql');
     }
