@@ -17,12 +17,13 @@ function redis_mutex_promise($key, callable $f, $max_wait_seconds = 10, $result_
     $data_key = 'redis_mutex_promise_data:' . $key;
     $lock_key = 'redis_mutex_promise_lock:' . $key;
     $max_ts = $max_wait_seconds + time();
+    $loop = 0;
 
     do {
         if (($res = Redis::get($data_key))) {
             return redis_decode_value($res);
         }
-        if (Redis::setNx($lock_key, time())) {
+        if ($loop === 0 && Redis::setNx($lock_key, time())) {
             Redis::expire($lock_key, $max_block_time);
             try {
                 $res = $f();
@@ -34,6 +35,8 @@ function redis_mutex_promise($key, callable $f, $max_wait_seconds = 10, $result_
                 return false;
             }
         }
+        $loop++;
+        sleep(1);
     } while (time() <= $max_ts);
     return false;
 }
