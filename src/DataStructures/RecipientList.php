@@ -33,7 +33,7 @@ class RecipientList
     public static function getList($key)
     {
         self::cleanUp();
-        return RecipientListModel::where("key", $key)->first();
+        return RecipientListModel::where("key", $key)->where("deleted_at", 0)->first();
     }
 
     private static function getOrCreateList($key, $data = [])
@@ -45,17 +45,26 @@ class RecipientList
         return RecipientListModel::create(array_merge($data, ["key" => $key, "updated_at" => time()]));
     }
 
+    public static function hardCleanUp($loops = 10)
+    {
+        $list = RecipientListModel::where("deleted_at", ">", 0)->first();
+        if ($list) {
+            $instance = new self($list);
+            $instance->clear();
+            RecipientListModel::where("id", $list->id)->delete();
+            \Log::info("Hard deleted list with id: $list->id");
+            if ($loops > 0) {
+                self::hardCleanUp($loops - 1);
+            }
+        }
+    }
+
     public static function cleanUp()
     {
-        $start = time();
-        foreach (RecipientListModel::all() as $list) {
+        foreach (RecipientListModel::where("deleted_at", 0)->get() as $list) {
             if ($list->isOld()) {
                 self::_forget($list);
-                \Log::info("Forget Recipient list " . $list->key);
-                // to not get stuck in the cleaning..
-                if (time() - $start > 10) {
-                    return;
-                }
+                \Log::info("Soft deleted list with id: $list->id");
             } else if ($list->locked_at > 0 && $list->locked_at < time() - 5 * 60) { // lock expires after 5 minutes
                 \Log::info("Released expired lock on Recipient list " . $list->id);
                 $list->locked_at = 0;
@@ -116,9 +125,7 @@ class RecipientList
     private static function _forget($list = null)
     {
         if ($list) {
-            $instance = new self($list);
-            $instance->clear();
-            RecipientListModel::where("id", $list->id)->delete();
+            RecipientListModel::where("id", $list->id)->update(["deleted_at" => time()]);
         }
     }
 
@@ -136,7 +143,7 @@ class RecipientList
         $this->update(["locked_at" => 0]);
     }
 
-    public function query() : Builder
+    public function query(): Builder
     {
         return ib_db(self::$dataTable)->where(self::$dataTable . ".list_id", $this->id)->select(self::$dataTable . ".key");
     }
