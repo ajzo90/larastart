@@ -87,14 +87,14 @@ class RecipientList
         return self::_remember($key, $minutes, $cb, true);
     }
 
-    public static function forever($key, callable $cb)
-    {
-        return self::remember($key, PHP_INT_MAX, $cb);
-    }
-
     public static function remember($key, $minutes, callable $cb)
     {
         return self::_remember($key, $minutes, $cb, false);
+    }
+
+    public static function forever($key, callable $cb)
+    {
+        return self::remember($key, PHP_INT_MAX, $cb);
     }
 
     public function query(): Builder
@@ -118,7 +118,7 @@ class RecipientList
     }
 
 
-    public function append(array $val)
+    public function append(array $val, $count = true)
     {
         if (!$this->canMutateList()) {
             throw new \Exception("RecipientListIsLockedForMutations");
@@ -130,7 +130,16 @@ class RecipientList
             }, $chunk);
             ib_db_insert_ignore($this->dataTable(), $data);
         }
-        $this->update(["length" => $this->query()->count()]);
+        if ($count) {
+            $this->updateCount();
+        }
+    }
+
+    public function updateCount()
+    {
+        $count = $this->query()->count();
+        $this->update(["length" => $count]);
+        return $count;
     }
 
 
@@ -169,7 +178,7 @@ class RecipientList
         $builder->selectRaw($this->id);
         $insertQuery = 'INSERT IGNORE into ' . $this->dataTable() . ' (`key`,`list_id`) ' . $builder->toSql();
         \DB::insert($insertQuery, $builder->getBindings());
-        $this->update(["length" => $this->query()->count()]);
+        $this->updateCount();
     }
 
 
