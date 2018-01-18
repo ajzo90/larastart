@@ -67,6 +67,27 @@ function redis_mutex_cb($key, callable $f, $sleep = 10, $max_block_seconds = 60 
     }
 }
 
+function redis_buffer($key, $string, callable $f, $max)
+{
+    $src = "redis-buffer-" . $key;
+    $queued_items = Redis::command("rpush", [$src, $string]);
+    if ($queued_items >= $max) {
+        if (Redis::exists($src)) {
+            $count = Redis::llen($src);
+            if ($count === 0) {
+                return;
+            }
+            $dest = $src . "-" . str_random();
+            // move to new temp buffer
+            Redis::rename($src, $dest);
+            // add all items in the buffer to processing
+            $items = Redis::lrange($dest, 0, -1);
+            $f($items);
+            Redis::del($dest);
+        }
+    }
+}
+
 
 //https://stackoverflow.com/questions/4006324/how-to-atomically-delete-keys-matching-a-pattern-using-redis
 function redis_del_prefix($prefix)
