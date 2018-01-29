@@ -67,24 +67,35 @@ function redis_mutex_cb($key, callable $f, $sleep = 10, $max_block_seconds = 60 
     }
 }
 
-function redis_buffer($key, $string, callable $f, $max)
+function redis_buffer_flush($key, callable $f)
 {
     $src = "redis-buffer-" . $key;
-    $queued_items = Redis::command("rpush", [$src, $string]);
-    if ($queued_items >= $max) {
-        if (Redis::exists($src)) {
-            $count = Redis::llen($src);
-            if ($count === 0) {
-                return;
-            }
-            $dest = $src . "-" . str_random();
-            // move to new temp buffer
-            Redis::rename($src, $dest);
-            // add all items in the buffer to processing
-            $items = Redis::lrange($dest, 0, -1);
-            $f($items);
-            Redis::del($dest);
+    if (Redis::exists($src)) {
+        $count = Redis::llen($src);
+        if ($count === 0) {
+            return;
         }
+        $dest = $src . "-" . str_random();
+        // move to new temp buffer
+        Redis::rename($src, $dest);
+        // add all items in the buffer to processing
+        $items = Redis::lrange($dest, 0, -1);
+        $f($items);
+        Redis::del($dest);
+    }
+}
+
+function redis_buffer_push($key, $string)
+{
+    $src = "redis-buffer-" . $key;
+    return Redis::command("rpush", [$src, $string]);
+}
+
+function redis_buffer($key, $string, callable $f, $max)
+{
+    $queued_items = redis_buffer_push($key, $string);
+    if ($queued_items >= $max) {
+        redis_buffer_flush($key, $f);
     }
 }
 
