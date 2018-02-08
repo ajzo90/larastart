@@ -67,6 +67,26 @@ function redis_mutex_cb($key, callable $f, $sleep = 10, $max_block_seconds = 60 
     }
 }
 
+
+//60 * 60 * 24 * 7=604800 (7 days)
+/*
+ *  redis_state_watcher("hello", "world", function ($newVal, $oldVal) {
+ *      echo "Value changed from $oldVal to $newVal";
+ *  });
+ */
+function redis_state_watcher($key, $new_value, callable $cb, $expiration = 604800)
+{
+    if (is_string($new_value)) {
+        $old_val = Redis::get($key);
+        if ($old_val !== $new_value) {
+            Redis::setEx($key, $expiration, $new_value);
+            $cb($new_value, $old_val);
+        }
+    }
+    throw new \Exception("Must use string value");
+}
+
+
 function redis_buffer_flush($key, callable $f)
 {
     $src = "redis-buffer-" . $key;
