@@ -82,8 +82,9 @@ function redis_state_watcher($key, $new_value, callable $cb, $expiration = 60480
             Redis::setEx($key, $expiration, $new_value);
             $cb($new_value, $old_val);
         }
+    } else {
+        throw new \Exception("Must use string value");
     }
-    throw new \Exception("Must use string value");
 }
 
 
