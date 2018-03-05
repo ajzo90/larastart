@@ -16,6 +16,11 @@ if (!defined('ib_db_helpers')) {
         return DB::connection($connection)->select($query, $bindings);
     }
 
+    function ib_db_table_exists($table)
+    {
+        return \Schema::hasTable($table);
+    }
+
     function ib_db_is_safe_number($str)
     {
         return sprintf('%d', intval($str)) === '' . $str;

@@ -13,6 +13,15 @@ if (!defined('ib_str_helpers')) {
         return substr($haystack, strlen($haystack) - strlen($needle), strlen($needle)) === $needle;
     }
 
+    function ib_string_wrap_implode($array, $wrap = "'", $glue = ',')
+    {
+        $array = array_map(function ($item) use ($wrap) {
+            return $wrap . $item . $wrap;
+        }, $array);
+        return implode($glue, $array);
+
+    }
+
     function ib_string_is_wrapped($string, $wrap_with)
     {
         return ib_string_starts_with($string, $wrap_with) && ib_string_ends_with($string, $wrap_with);
